@@ -1,0 +1,253 @@
+/* Pomodoro Focus Timer Styles */
+
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 680px;
+  margin: 0 auto;
+  gap: 28px;
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* Mode Selector Tabs */
+.timer-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  backdrop-filter: var(--blur-glass);
+  padding: 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+}
+
+.mode-tab-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.mode-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.mode-tab-btn.active {
+  background: var(--accent-gradient);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* Circular SVG Timer */
+.timer-dial-wrapper {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.timer-track-circle {
+  stroke: var(--border-color);
+  stroke-width: 6;
+  fill: transparent;
+}
+
+.timer-progress-circle {
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  fill: transparent;
+  transition: stroke-dashoffset 0.8s linear, stroke var(--transition-normal);
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.timer-progress-circle.active {
+  stroke: url(#timerGradient);
+}
+
+.timer-center-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.timer-digits {
+  font-family: var(--font-mono);
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  color: var(--text-primary);
+  text-shadow: 0 0 20px var(--accent-glow);
+}
+
+.timer-mode-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+
+.timer-session-badge {
+  font-size: 12px;
+  color: var(--accent-light);
+  background: var(--accent-glow);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-focus);
+  margin-top: 6px;
+}
+
+/* Primary Timer Controls */
+.timer-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.timer-play-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px var(--accent-glow);
+  transition: all var(--transition-fast);
+}
+
+.timer-play-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px var(--accent);
+}
+
+.timer-play-btn:active {
+  transform: scale(0.96);
+}
+
+.timer-secondary-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.timer-secondary-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+}
+
+/* Attached Task Card */
+.active-task-attachment {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-card);
+  backdrop-filter: var(--blur-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.active-task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  flex: 1;
+  overflow: hidden;
+}
+
+.active-task-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent-light);
+  font-weight: 600;
+}
+
+.active-task-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Quick Ambient Bar */
+.quick-ambient-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+}
+
+.ambient-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+}
+
+.ambient-chip-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.ambient-chip-btn.active {
+  color: var(--accent-light);
+  background: var(--accent-glow);
+  border-color: var(--border-focus);
+}
+
+@media (max-width: 480px) {
+  .timer-dial-wrapper {
+    width: 260px;
+    height: 260px;
+  }
+  .timer-digits {
+    font-size: 50px;
+  }
+  .timer-mode-selector {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .mode-tab-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,12 @@
+@import './styles/design-tokens.css';
+@import './styles/mindsync.css';
+@import './styles/dashboard.css';
+@import './styles/habits.css';
+@import './styles/tasks.css';
+@import './styles/notes.css';
+@import './styles/timer.css';
+
+/* Prevent horizontal scroll on any page */
+body {
+  overflow-x: hidden;
+}
