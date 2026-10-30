@@ -18,7 +18,9 @@ import type {
   EmergencyContact,
   CrisisHelpline,
   WellnessRecommendation,
-  EmotionType
+  EmotionType,
+  UserLoginRecord,
+  AssessmentRecord
 } from '../types';
 
 import { generateUUID } from '../utils/crypto';
@@ -238,6 +240,7 @@ export const SEED_CRISIS_HELPLINES: CrisisHelpline[] = [
 
 class MindSyncDatabase {
   private prefix = 'mindsync_db_';
+  private idbName = 'mindsync_indexeddb_v1';
 
   private getItem<T>(table: string, fallback: T): T {
     try {
@@ -251,53 +254,107 @@ class MindSyncDatabase {
   private setItem<T>(table: string, value: T): void {
     try {
       localStorage.setItem(this.prefix + table, JSON.stringify(value));
+      // Asynchronously mirror into browser IndexedDB database for durability
+      this.syncToIndexedDB(table, value);
     } catch (e) {
       console.error(`Failed to save table ${table} to localStorage`, e);
+    }
+  }
+
+  // --- IndexedDB Browser Storage Engine ---
+  private syncToIndexedDB(table: string, value: any): void {
+    if (typeof window === 'undefined' || !window.indexedDB) return;
+    try {
+      const req = window.indexedDB.open(this.idbName, 1);
+      req.onupgradeneeded = (e: any) => {
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains('keyval')) {
+          idb.createObjectStore('keyval');
+        }
+      };
+      req.onsuccess = (e: any) => {
+        const idb = e.target.result;
+        const tx = idb.transaction('keyval', 'readwrite');
+        const store = tx.objectStore('keyval');
+        store.put(value, table);
+      };
+    } catch (err) {
+      // Non-blocking fallback
     }
   }
 
   // --- 1. USERS & PROFILES ---
   getUsers(): UserProfile[] {
     let users = this.getItem<UserProfile[]>('users', []);
-    if (users.length === 0) {
-      users = [
-        {
-          id: 'usr-admin-01',
-          name: 'MindSync Administrator',
-          email: 'admin@mindsync.com',
-          passwordHash: '10c93112f967e2a86efbd5bc04cbbf86e4849d6984fcdc2f21140eb061ec991f', // password: admin123
-          role: 'admin',
-          age: 32,
-          gender: 'prefer-not-to-say',
-          location: 'Bengaluru, India',
-          isLoggedIn: false,
-          createdAt: new Date().toISOString()
-        }
-      ];
-      this.setItem('users', users);
-    } else if (!users.some(u => u.role === 'admin')) {
-      users.push({
+    const defaultUsers: UserProfile[] = [
+      {
         id: 'usr-admin-01',
         name: 'MindSync Administrator',
         email: 'admin@mindsync.com',
-        passwordHash: '10c93112f967e2a86efbd5bc04cbbf86e4849d6984fcdc2f21140eb061ec991f',
+        passwordHash: '10c93112f967e2a86efbd5bc04cbbf86e4849d6984fcdc2f21140eb061ec991f', // admin123
         role: 'admin',
         age: 32,
         gender: 'prefer-not-to-say',
         location: 'Bengaluru, India',
         isLoggedIn: false,
-        createdAt: new Date().toISOString()
-      });
+        loginCount: 14,
+        lastLoginAt: new Date(Date.now() - 3600000).toISOString(),
+        createdAt: '2026-01-15T08:00:00.000Z'
+      },
+      {
+        id: 'usr-member-02',
+        name: 'Priya Sharma',
+        email: 'user@mindsync.com',
+        passwordHash: 'bda21549bf88c893c31356dff49fa1eb66ffb95c92d0a7f303e7a4627fcdc8f5', // user123
+        role: 'user',
+        age: 24,
+        gender: 'female',
+        location: 'Bengaluru, Karnataka',
+        isLoggedIn: false,
+        loginCount: 9,
+        lastLoginAt: new Date(Date.now() - 7200000).toISOString(),
+        createdAt: '2026-02-01T10:30:00.000Z'
+      },
+      {
+        id: 'usr-kathir-03',
+        name: 'Kathiravan',
+        email: 'kathir@mindsync.com',
+        passwordHash: '84eeb6791e088c2860690f7c345d0b7b34ff6f9d82fd0fafe89d6fc02bb8d00a', // kathir123
+        role: 'user',
+        age: 22,
+        gender: 'male',
+        location: 'Chennai, Tamil Nadu',
+        isLoggedIn: false,
+        loginCount: 5,
+        lastLoginAt: new Date().toISOString(),
+        createdAt: '2026-03-10T14:20:00.000Z'
+      }
+    ];
+
+    if (users.length === 0) {
+      users = defaultUsers;
       this.setItem('users', users);
+    } else {
+      // Ensure seed accounts exist without clobbering user modifications
+      let modified = false;
+      defaultUsers.forEach(d => {
+        if (!users.some(u => u.email.toLowerCase() === d.email.toLowerCase())) {
+          users.push(d);
+          modified = true;
+        }
+      });
+      if (modified) {
+        this.setItem('users', users);
+      }
     }
     return users;
   }
 
   saveUser(user: UserProfile): void {
     const users = this.getUsers();
-    const idx = users.findIndex(u => u.id === user.id);
+    const idx = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
     if (idx >= 0) {
-      users[idx] = user;
+      users[idx] = { ...users[idx], ...user };
     } else {
       users.push(user);
     }
@@ -310,6 +367,82 @@ class MindSyncDatabase {
 
   getUserByEmail(email: string): UserProfile | null {
     return this.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+  }
+
+  // --- USER LOGIN AUDIT & SESSIONS DATABASE ---
+  recordLogin(user: UserProfile, status: 'success' | 'failed' = 'success', clientInfo?: string): UserLoginRecord {
+    const list = this.getItem<UserLoginRecord[]>('login_records', []);
+    const deviceInfo = clientInfo || (typeof navigator !== 'undefined' ? `${navigator.userAgent.slice(0, 80)}` : 'Web Browser');
+    const record: UserLoginRecord = {
+      id: generateUUID(),
+      userId: user.id,
+      email: user.email,
+      userName: user.name,
+      loginTimestamp: new Date().toISOString(),
+      deviceInfo,
+      status,
+      ipAddress: '127.0.0.1 (Local Verified)'
+    };
+    list.unshift(record);
+    // Keep last 150 login records
+    this.setItem('login_records', list.slice(0, 150));
+
+    // Update user profile login counter & timestamp
+    user.lastLoginAt = record.loginTimestamp;
+    user.loginCount = (user.loginCount || 0) + 1;
+    user.isLoggedIn = status === 'success';
+    this.saveUser(user);
+
+    return record;
+  }
+
+  getLoginRecords(userId?: string): UserLoginRecord[] {
+    const list = this.getItem<UserLoginRecord[]>('login_records', []);
+    if (userId) {
+      return list.filter(r => r.userId === userId);
+    }
+    return list;
+  }
+
+  getLoginRecordsForUser(role: 'admin' | 'user', userId?: string): UserLoginRecord[] {
+    if (role === 'admin') {
+      return this.getLoginRecords();
+    }
+    return userId ? this.getLoginRecords(userId) : [];
+  }
+
+  // --- MENTAL WELLNESS ASSESSMENTS DATABASE ---
+  saveAssessment(record: AssessmentRecord): void {
+    const list = this.getItem<AssessmentRecord[]>('assessments', []);
+    list.unshift(record);
+    this.setItem('assessments', list);
+
+    // Also auto-add wellness recommendation in the database if high or moderate stress
+    if (record.suggestConsultation) {
+      this.addWellnessRecommendation({
+        id: generateUUID(),
+        userId: record.userId,
+        type: 'counseling',
+        title: `Clinical Consultation Suggested (${record.assessmentTitle})`,
+        description: `Assessment result indicates ${record.severityLevel} symptoms (${record.totalScore}/${record.maxScore}). Consider scheduling a confidential telehealth session.`,
+        triggerReason: `Assessment score: ${record.totalScore}/${record.maxScore} (${record.severityLevel})`,
+        isCompleted: false,
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
+
+  getAssessments(userId: string): AssessmentRecord[] {
+    const list = this.getItem<AssessmentRecord[]>('assessments', []);
+    return list.filter(a => a.userId === userId);
+  }
+
+  getAssessmentsForUser(role: 'admin' | 'user', userId?: string): AssessmentRecord[] {
+    const list = this.getItem<AssessmentRecord[]>('assessments', []);
+    if (role === 'admin') {
+      return list;
+    }
+    return userId ? list.filter(a => a.userId === userId) : [];
   }
 
   // --- 2. USER PREFERENCES ---
@@ -652,6 +785,12 @@ class MindSyncDatabase {
     ];
     this.setItem('wellness_recommendations', [...list, ...defaultRecs]);
     return defaultRecs;
+  }
+
+  addWellnessRecommendation(rec: WellnessRecommendation): void {
+    const list = this.getItem<WellnessRecommendation[]>('wellness_recommendations', []);
+    list.unshift(rec);
+    this.setItem('wellness_recommendations', list);
   }
 
   toggleRecommendation(id: string): void {

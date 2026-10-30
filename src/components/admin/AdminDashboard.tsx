@@ -8,7 +8,9 @@ import type {
   MoodRecord,
   UserProfile,
   EmotionPrediction,
-  Appointment
+  Appointment,
+  UserLoginRecord,
+  AssessmentRecord
 } from '../../types';
 import {
   ShieldAlert,
@@ -21,12 +23,14 @@ import {
   Search,
   CheckCircle,
   MapPin,
-  Lock
+  Lock,
+  LogIn,
+  ClipboardList
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'screentime' | 'behavior' | 'mood' | 'emotions' | 'appointments'>('users');
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'logins' | 'assessments' | 'screentime' | 'behavior' | 'mood' | 'emotions' | 'appointments'>('users');
   const [searchTerm, setSearchTerm] = useState('');
 
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -35,6 +39,8 @@ export const AdminDashboard: React.FC = () => {
   const [moods, setMoods] = useState<MoodRecord[]>([]);
   const [emotions, setEmotions] = useState<EmotionPrediction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loginRecords, setLoginRecords] = useState<UserLoginRecord[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') return;
@@ -45,6 +51,8 @@ export const AdminDashboard: React.FC = () => {
     setMoods(db.getMoodRecordsForUser(user.id, role));
     setEmotions(db.getEmotionPredictionsForUser(user.id, role));
     setAppointments(db.getAppointmentsForUser(user.id, role));
+    setLoginRecords(db.getLoginRecordsForUser(role, user.id));
+    setAssessments(db.getAssessmentsForUser(role, user.id));
   }, [user]);
 
   if (!user) return null;
@@ -93,6 +101,19 @@ export const AdminDashboard: React.FC = () => {
     a.status.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredLogins = loginRecords.filter(l =>
+    l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.deviceInfo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.status.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredAssessments = assessments.filter(a =>
+    a.assessmentTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.severityLevel.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Header Banner */}
@@ -124,25 +145,27 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Metrics Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
           { label: 'Registered Users', count: usersList.length, icon: Users, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+          { label: 'Login Sessions', count: loginRecords.length, icon: LogIn, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+          { label: 'Assessments', count: assessments.length, icon: ClipboardList, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
           { label: 'Screen Logs', count: screenTimes.length, icon: Smartphone, color: 'text-teal-400', bg: 'bg-teal-500/10' },
-          { label: 'Behavior Dynamics', count: behaviors.length, icon: Activity, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+          { label: 'Behavior Telemetry', count: behaviors.length, icon: Activity, color: 'text-violet-400', bg: 'bg-violet-500/10' },
           { label: 'Mood Logs', count: moods.length, icon: Heart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
           { label: 'FACS Predictions', count: emotions.length, icon: Camera, color: 'text-amber-400', bg: 'bg-amber-500/10' },
           { label: 'Appointments', count: appointments.length, icon: Calendar, color: 'text-sky-400', bg: 'bg-sky-500/10' },
         ].map(stat => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+            <div key={stat.label} className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium">{stat.label}</span>
-                <div className={`p-1.5 rounded-lg ${stat.bg}`}>
-                  <Icon className={`w-4 h-4 ${stat.color}`} />
+                <span className="text-[11px] text-slate-400 font-medium truncate">{stat.label}</span>
+                <div className={`p-1 rounded-lg ${stat.bg}`}>
+                  <Icon className={`w-3.5 h-3.5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="text-2xl font-black text-white">{stat.count}</div>
+              <div className="text-xl font-black text-white">{stat.count}</div>
             </div>
           );
         })}
@@ -154,6 +177,8 @@ export const AdminDashboard: React.FC = () => {
         <div className="flex flex-wrap gap-1.5 p-1 rounded-2xl bg-slate-900/80 border border-slate-800">
           {[
             { id: 'users', label: 'Users', icon: Users, count: usersList.length },
+            { id: 'logins', label: 'Login History', icon: LogIn, count: loginRecords.length },
+            { id: 'assessments', label: 'Assessments', icon: ClipboardList, count: assessments.length },
             { id: 'screentime', label: 'Screen Time', icon: Smartphone, count: screenTimes.length },
             { id: 'behavior', label: 'Behavior Telemetry', icon: Activity, count: behaviors.length },
             { id: 'mood', label: 'Mood History', icon: Heart, count: moods.length },
@@ -253,6 +278,117 @@ export const AdminDashboard: React.FC = () => {
                       <td className="px-5 py-3.5 text-slate-500">
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Active'}
                       </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 1B. LOGIN AUDIT & USER SESSIONS TABLE */}
+        {activeAdminTab === 'logins' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="bg-slate-800/70 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="px-5 py-3.5">User</th>
+                  <th className="px-5 py-3.5">Email</th>
+                  <th className="px-5 py-3.5">Login Timestamp</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Client / Browser Info</th>
+                  <th className="px-5 py-3.5">IP / Security</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredLogins.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
+                      No login records stored in database yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLogins.map(l => (
+                    <tr key={l.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-5 py-3.5 font-bold text-white flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
+                          {l.userName.charAt(0)}
+                        </div>
+                        {l.userName}
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-slate-300">{l.email}</td>
+                      <td className="px-5 py-3.5 text-slate-400">{new Date(l.loginTimestamp).toLocaleString()}</td>
+                      <td className="px-5 py-3.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            l.status === 'success'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}
+                        >
+                          {l.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-400 max-w-xs truncate" title={l.deviceInfo}>
+                        {l.deviceInfo}
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-slate-500 text-[11px]">{l.ipAddress || 'Verified'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 1C. MENTAL WELLNESS ASSESSMENTS TABLE */}
+        {activeAdminTab === 'assessments' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="bg-slate-800/70 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="px-5 py-3.5">User ID</th>
+                  <th className="px-5 py-3.5">Assessment Instrument</th>
+                  <th className="px-5 py-3.5">Score</th>
+                  <th className="px-5 py-3.5">Severity Level</th>
+                  <th className="px-5 py-3.5">Recommended Action</th>
+                  <th className="px-5 py-3.5">Completed Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredAssessments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
+                      No mental wellness assessments completed yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAssessments.map(a => (
+                    <tr key={a.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-5 py-3.5 font-mono text-slate-400">{a.userId.substring(0, 10)}…</td>
+                      <td className="px-5 py-3.5 font-bold text-white">{a.assessmentTitle}</td>
+                      <td className="px-5 py-3.5 font-mono font-semibold text-cyan-400">
+                        {a.totalScore} / {a.maxScore} ({a.scorePercentage}%)
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            a.severityLevel === 'Minimal'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : a.severityLevel === 'Mild'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : a.severityLevel === 'Moderate'
+                              ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}
+                        >
+                          {a.severityLevel}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-300 max-w-sm truncate" title={a.recommendedAction}>
+                        {a.recommendedAction}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-400">{new Date(a.completedAt).toLocaleString()}</td>
                     </tr>
                   ))
                 )}

@@ -22,11 +22,14 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../db/database';
 import {
   classifyEmotion,
-  extractFeaturesFromVideoFrame,
   CANONICAL_EMOTION_PRESETS,
   type ClassificationResult,
   type FaceLandmarks
 } from '../../ml/emotionClassifier';
+import {
+  processAccurateFrame,
+  getOrInitFaceLandmarker
+} from '../../ml/accurateFaceTracker';
 import type { EmotionType } from '../../types';
 import { generateUUID } from '../../utils/crypto';
 
@@ -59,6 +62,14 @@ export const CameraEmotionEstimator: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [_faceDetected, setFaceDetected] = useState<boolean>(true);
   const [_currentLandmarks, setCurrentLandmarks] = useState<FaceLandmarks | null>(null);
+  const [isNeuralEngine, setIsNeuralEngine] = useState<boolean>(false);
+
+  // Pre-initialize MediaPipe FaceLandmarker on mount
+  useEffect(() => {
+    getOrInitFaceLandmarker().then(lm => {
+      if (lm) setIsNeuralEngine(true);
+    });
+  }, []);
 
   // Simulated expression state
   const [simulatedEmotion, setSimulatedEmotion] = useState<EmotionType>('Happy');
@@ -345,16 +356,38 @@ export const CameraEmotionEstimator: React.FC = () => {
         const sourceElement = cameraMode === 'hardware' ? videoRef.current : simCanvasRef.current;
         const workCanvas = canvasRef.current;
 
-        if (sourceElement && workCanvas && time - lastScanTime > 350) {
+        if (sourceElement && workCanvas && time - lastScanTime > 200) {
           lastScanTime = time;
           setIsProcessing(true);
 
-          let frameData;
-          if (cameraMode === 'hardware' && videoRef.current) {
-            frameData = extractFeaturesFromVideoFrame(videoRef.current, workCanvas);
-          } else if (cameraMode === 'simulated' && simCanvasRef.current) {
-            // Analyze simulated canvas frame directly
-            frameData = extractFeaturesFromVideoFrame(simCanvasRef.current, workCanvas);
+          let frameData: { faceDetected: boolean; landmarks: FaceLandmarks | null; features: any; classification: ClassificationResult; isNeuralEngine: boolean };
+
+          if (cameraMode === 'simulated') {
+            // For simulated avatar, directly bind canonical blendshapes matching simulated expression
+            const canonFeatures = CANONICAL_EMOTION_PRESETS[simulatedEmotion];
+            frameData = {
+              faceDetected: true,
+              landmarks: {
+                box: { x: 70, y: 35, width: 180, height: 180 },
+                leftEye: { x: 138, y: 104 },
+                rightEye: { x: 182, y: 104 },
+                nose: { x: 160, y: 122 },
+                mouthLeft: { x: 144, y: 155 },
+                mouthRight: { x: 176, y: 155 },
+                mouthCenter: { x: 160, y: 155 },
+                leftBrow: { x: 138, y: 92 },
+                rightBrow: { x: 182, y: 92 },
+              },
+              features: canonFeatures,
+              classification: classifyEmotion(canonFeatures),
+              isNeuralEngine: false,
+            };
+          } else {
+            // High-precision MediaPipe + Computer Vision frame processor
+            frameData = processAccurateFrame(sourceElement, workCanvas, true);
+            if (frameData.isNeuralEngine !== isNeuralEngine) {
+              setIsNeuralEngine(frameData.isNeuralEngine);
+            }
           }
 
           if (frameData) {
@@ -364,7 +397,7 @@ export const CameraEmotionEstimator: React.FC = () => {
             }
 
             if (frameData.faceDetected) {
-              const result = classifyEmotion(frameData.features);
+              const result = frameData.classification;
               setCurrentResult(result);
 
               // Draw live HUD overlay on overlayCanvasRef
@@ -377,20 +410,24 @@ export const CameraEmotionEstimator: React.FC = () => {
                   const oh = displaySize.h;
                   if (overlay.width !== ow) overlay.width = ow;
                   if (overlay.height !== oh) overlay.height = oh;
+                  
                   // Scale factor: analysis space is 320×240, display may differ
                   const SX = ow / 320;
                   const SY = oh / 240;
                   oCtx.clearRect(0, 0, ow, oh);
 
                   const lm = frameData.landmarks;
-                  // Scale all landmark coordinates from analysis 320×240 space to display space
-                  const bx = lm.box.x * SX;
-                  const by = lm.box.y * SY;
+                  const isMirrored = cameraMode === 'hardware';
+
+                  // Correct horizontal mirror coordinates to match mirrored camera feed
+                  const scaleXCoord = (x: number) => isMirrored ? ow - (x * SX) : (x * SX);
                   const bw = lm.box.width * SX;
                   const bh = lm.box.height * SY;
+                  const by = lm.box.y * SY;
+                  const bx = isMirrored ? ow - (lm.box.x * SX) - bw : lm.box.x * SX;
 
                   // High-Tech Cyber Corner Reticles
-                  oCtx.strokeStyle = '#14b8a6';
+                  oCtx.strokeStyle = isNeuralEngine ? '#2dd4bf' : '#14b8a6';
                   oCtx.lineWidth = 2.5;
                   const cornerLen = Math.max(14, Math.min(24, ow * 0.035));
 
@@ -422,8 +459,8 @@ export const CameraEmotionEstimator: React.FC = () => {
                   oCtx.lineTo(bx + bw, by + bh - cornerLen);
                   oCtx.stroke();
 
-                  // Landmark Dots — scale each point from 320×240 to display space
-                  const scalePt = (pt: { x: number; y: number }) => ({ x: pt.x * SX, y: pt.y * SY });
+                  // Landmark Dots — accurately mapped to screen coordinates
+                  const scalePt = (pt: { x: number; y: number }) => ({ x: scaleXCoord(pt.x), y: pt.y * SY });
                   const dots = [
                     scalePt(lm.leftEye),
                     scalePt(lm.rightEye),
@@ -467,7 +504,7 @@ export const CameraEmotionEstimator: React.FC = () => {
                   const badgeY = Math.max(fontSize + 4, by - 10);
 
                   // Pill background
-                  oCtx.fillStyle = 'rgba(15,23,42,0.88)';
+                  oCtx.fillStyle = 'rgba(15,23,42,0.92)';
                   oCtx.beginPath();
                   oCtx.roundRect(badgeX, badgeY - fontSize - 2, textW + 24, fontSize + 10, 8);
                   oCtx.fill();
@@ -606,10 +643,16 @@ export const CameraEmotionEstimator: React.FC = () => {
               <h2 className="text-xl font-bold text-white flex items-center gap-2 flex-wrap">
                 Camera-Based Emotional State Estimation
                 {isCameraActive && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    {cameraMode === 'hardware' ? 'Physical Camera Active' : 'Live Simulated Face Stream Active'}
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      {cameraMode === 'hardware' ? 'Physical Camera Active' : 'Live Simulated Face Stream Active'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      {isNeuralEngine ? 'MediaPipe Neural FACS (High Accuracy)' : 'Calibrated Geometric FACS'}
+                    </span>
+                  </>
                 )}
               </h2>
               <p className="text-sm text-slate-300 mt-1 max-w-3xl">

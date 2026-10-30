@@ -1,7 +1,7 @@
 // MindSync – AI-Powered Mental Wellness Platform
 // Main Application Orchestrator
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
@@ -23,11 +23,13 @@ import { UserProfileView }          from './components/profile/UserProfileView';
 import { AuthModal }                from './components/auth/AuthModal';
 import { LoginPage }                from './components/auth/LoginPage';
 import { AIChatbot }                from './components/chat/AIChatbot';
+import { MentalWellnessAssessment } from './components/assessment/MentalWellnessAssessment';
 import type { HealthcareProvider, Appointment } from './types';
 import { PhoneCall, Bot, Sun, Moon } from 'lucide-react';
 
 const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard:    { title: 'Dashboard Overview',                subtitle: 'Real-time mental wellness telemetry & insights' },
+  assessment:   { title: 'Mental Wellness Assessment & Guidance', subtitle: 'Clinical PHQ-9, GAD-7 & indicative evaluations' },
   mood:         { title: 'Mood & Camera Landmark Estimation', subtitle: 'FACS geometric valence & emotion tracking' },
   screentime:   { title: 'Routine-Aware Screen Time',        subtitle: 'Circadian blue-light vigilance & app usage limits' },
   behavior:     { title: 'Behavioral Stress Telemetry',      subtitle: 'Typing cadence dynamics & cognitive fatigue' },
@@ -160,6 +162,10 @@ function MindSyncContent() {
             <>
               {activeTab === 'dashboard' && (
                 <DashboardPage onNavigate={handleNavigate} />
+              )}
+
+              {activeTab === 'assessment' && (
+                <MentalWellnessAssessment onNavigateTab={handleNavigate} />
               )}
 
               {activeTab === 'mood' && (

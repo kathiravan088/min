@@ -27,6 +27,8 @@ export interface UserProfile {
   lat?: number;
   lng?: number;
   isLoggedIn: boolean;
+  lastLoginAt?: string;
+  loginCount?: number;
   createdAt: string;
 }
 
@@ -227,3 +229,75 @@ export interface CrisisHelpline {
   type: 'government' | 'ngo' | 'emergency';
   verified: boolean;
 }
+
+// User Login Audit & Session Persistence
+export interface UserLoginRecord {
+  id: string;
+  userId: string;
+  email: string;
+  userName: string;
+  loginTimestamp: string;
+  deviceInfo: string;
+  status: 'success' | 'failed';
+  ipAddress?: string;
+}
+
+// Mental Wellness Assessment Definitions
+export type AssessmentType = 'phq9' | 'gad7' | 'pss10' | 'holistic';
+
+export interface AssessmentOption {
+  text: string;
+  points: number;
+}
+
+export interface AssessmentQuestion {
+  id: string;
+  question: string;
+  context?: string;
+  category?: string;
+  options: AssessmentOption[];
+}
+
+export interface SeverityTier {
+  minScore: number;
+  maxScore: number;
+  level: 'Minimal' | 'Mild' | 'Moderate' | 'Moderately Severe' | 'Severe';
+  color: string;
+  title: string;
+  indicativeSummary: string;
+  guidance: string[];
+  recommendedAction: string;
+  suggestConsultation: boolean;
+}
+
+export interface AssessmentInstrument {
+  id: AssessmentType;
+  title: string;
+  shortTitle: string;
+  description: string;
+  scoringMethod: string;
+  totalMaxScore: number;
+  timeEstimateMin: number;
+  clinicalReference: string;
+  questions: AssessmentQuestion[];
+  severityTiers: SeverityTier[];
+}
+
+export interface AssessmentRecord {
+  id: string;
+  userId: string;
+  assessmentType: AssessmentType;
+  assessmentTitle: string;
+  totalScore: number;
+  maxScore: number;
+  scorePercentage: number;
+  severityLevel: 'Minimal' | 'Mild' | 'Moderate' | 'Moderately Severe' | 'Severe';
+  indicativeResult: string;
+  personalizedGuidance: string[];
+  recommendedAction: string;
+  suggestConsultation: boolean;
+  categoryBreakdown?: Record<string, number>;
+  answers: Record<string, number>;
+  completedAt: string;
+}
+

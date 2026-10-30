@@ -218,7 +218,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ theme, onToggleTheme, onLo
           {/* ── SIGN IN ── */}
           {activeTab === 'login' ? (
             <div className="ms-form-section">
-
               <form onSubmit={handleLogin} className="ms-form">
                 <div className="ms-field">
                   <label className="ms-label">Email Address</label>
@@ -242,8 +241,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ theme, onToggleTheme, onLo
                   </div>
                 </div>
                 <button type="submit" disabled={isLoading} className="ms-btn ms-btn-grad">
-                  {isLoading ? <><span className="ms-spinner" /><span>Verifying…</span></> : <><span>Sign In to MindSync</span><ArrowRight size={15} /></>}
+                  {isLoading ? <><span className="ms-spinner" /><span>Verifying & Syncing Database…</span></> : <><span>Sign In to MindSync</span><ArrowRight size={15} /></>}
                 </button>
+
+                {/* Quick Pre-Seeded Database Accounts */}
+                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: '8px' }}>
+                    Quick Logins (stored in Database):
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setEmail('user@mindsync.com'); setPassword('user123'); }}
+                      style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(20,184,166,0.15)', border: '1px solid rgba(20,184,166,0.3)', color: '#2dd4bf', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Priya (User)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEmail('kathir@mindsync.com'); setPassword('kathir123'); }}
+                      style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Kathiravan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEmail('admin@mindsync.com'); setPassword('admin123'); }}
+                      style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: '#fb7185', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Admin
+                    </button>
+                  </div>
+                </div>
               </form>
             </div>
 

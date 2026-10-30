@@ -18,7 +18,8 @@ import {
   Bot,
   LayoutDashboard,
   User,
-  ChevronRight
+  ChevronRight,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -33,6 +34,7 @@ interface NavbarProps {
 
 const NAV_ITEMS = [
   { id: 'dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
+  { id: 'assessment',   label: 'Assessment',      icon: ClipboardCheck },
   { id: 'mood',         label: 'Mood & Camera',    icon: Camera },
   { id: 'screentime',   label: 'Screen Time',      icon: Smartphone },
   { id: 'behavior',     label: 'Behavior',         icon: Keyboard },

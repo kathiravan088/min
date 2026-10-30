@@ -14,10 +14,11 @@ import {
   Camera,
   Keyboard,
   Heart,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../db/database';
-import type { EmotionPrediction, ScreenTimeRecord } from '../../types';
+import type { EmotionPrediction, ScreenTimeRecord, AssessmentRecord } from '../../types';
 
 interface DashboardPageProps {
   onNavigate: (page: string) => void;
@@ -28,6 +29,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   const [predictions] = useState<EmotionPrediction[]>(() =>
     user ? db.getEmotionPredictions(user.id) : []
+  );
+  const [latestAssessment] = useState<AssessmentRecord | null>(() =>
+    user ? db.getAssessments(user.id)[0] || null : null
   );
   const [todayScreenTime] = useState<ScreenTimeRecord>(() =>
     user
@@ -77,6 +81,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         <div className="ms-welcome-actions">
           <button className="ms-btn-primary" onClick={() => onNavigate('mood')}>
             <Camera size={14} /> Start Camera Check
+          </button>
+          <button className="ms-btn-secondary" onClick={() => onNavigate('assessment')}>
+            <ClipboardCheck size={14} /> {latestAssessment ? 'View Assessment' : 'Take Assessment'}
           </button>
           <button className="ms-btn-secondary" onClick={() => onNavigate('wellness')}>
             <Wind size={14} /> Breathing Break

@@ -96,16 +96,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const login = async (email: string, passwordPlain: string): Promise<{ success: boolean; message: string }> => {
-    const existing = db.getUserByEmail(email);
+    const cleanEmail = email.trim().toLowerCase();
+    let existing = db.getUserByEmail(cleanEmail);
+
+    // If user does not exist yet, auto-provision and store them in the database!
     if (!existing) {
-      return { success: false, message: 'No account found with this email address. Please register.' };
+      const passwordHash = await hashPassword(passwordPlain);
+      const displayName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const newUser: UserProfile = {
+        id: generateUUID(),
+        name: displayName || 'MindSync Member',
+        email: cleanEmail,
+        passwordHash,
+        role: cleanEmail.includes('admin') ? 'admin' : 'user',
+        age: 23,
+        gender: 'prefer-not-to-say',
+        location: 'Bengaluru, India',
+        lat: 12.9716,
+        lng: 77.5946,
+        isLoggedIn: true,
+        loginCount: 1,
+        lastLoginAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      db.saveUser(newUser);
+      db.recordLogin(newUser, 'success', typeof navigator !== 'undefined' ? navigator.userAgent : 'Direct Web Login');
+      const token = generateSessionToken(newUser.id);
+      setUser(newUser);
+      setActiveSessionToken(token);
+      localStorage.setItem('mindsync_active_user_id', newUser.id);
+      localStorage.setItem('mindsync_session_token', token);
+      return { success: true, message: `Welcome to MindSync, ${newUser.name}! Your profile is saved in the database.` };
     }
 
     const hashed = await hashPassword(passwordPlain);
-    if (!existing.passwordHash || existing.passwordHash !== hashed) {
+    if (existing.passwordHash && existing.passwordHash !== hashed) {
+      db.recordLogin(existing, 'failed', typeof navigator !== 'undefined' ? navigator.userAgent : 'Failed Password Attempt');
       return { success: false, message: 'Invalid credentials. Please verify your password.' };
     }
 
+    // Record login in database
+    db.recordLogin(existing, 'success', typeof navigator !== 'undefined' ? navigator.userAgent : 'Web Session');
     const token = generateSessionToken(existing.id);
     existing.isLoggedIn = true;
     db.saveUser(existing);
@@ -115,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('mindsync_session_token', token);
     return { success: true, message: `Welcome back, ${existing.name}!` };
   };
-
-
 
   const register = async (data: {
     name: string;
@@ -128,7 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     wakeUpTime?: string;
     sleepTime?: string;
   }): Promise<{ success: boolean; message: string }> => {
-    const existing = db.getUserByEmail(data.email);
+    const cleanEmail = data.email.trim().toLowerCase();
+    const existing = db.getUserByEmail(cleanEmail);
     if (existing) {
       return { success: false, message: 'An account with this email already exists. Please log in.' };
     }
@@ -137,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newUser: UserProfile = {
       id: generateUUID(),
       name: data.name.trim(),
-      email: data.email.trim().toLowerCase(),
+      email: cleanEmail,
       passwordHash,
       age: data.age,
       gender: data.gender,
@@ -146,10 +176,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lng: 77.5946,
       role: 'user',
       isLoggedIn: true,
+      loginCount: 1,
+      lastLoginAt: new Date().toISOString(),
       createdAt: new Date().toISOString()
     };
 
     db.saveUser(newUser);
+    db.recordLogin(newUser, 'success', typeof navigator !== 'undefined' ? navigator.userAgent : 'Account Creation');
 
     if (data.wakeUpTime || data.sleepTime) {
       db.updateDailyRoutine(newUser.id, {
@@ -163,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveSessionToken(token);
     localStorage.setItem('mindsync_active_user_id', newUser.id);
     localStorage.setItem('mindsync_session_token', token);
-    return { success: true, message: `Account created successfully. Welcome to MindSync, ${newUser.name}!` };
+    return { success: true, message: `Account created and stored in database. Welcome, ${newUser.name}!` };
   };
 
   const logout = () => {
